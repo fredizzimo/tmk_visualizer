@@ -25,6 +25,7 @@ SOFTWARE.
 #include "visualizer.h"
 #include "ch.h"
 #include <string.h>
+#include "chschd.h"
 
 #ifdef LCD_ENABLE
 #include "gfx.h"
@@ -34,7 +35,7 @@ SOFTWARE.
 #include "lcd_backlight.h"
 #endif
 
-//#define DEBUG_VISUALIZER
+#define DEBUG_VISUALIZER
 
 #ifdef DEBUG_VISUALIZER
 #include "debug.h"
@@ -128,8 +129,8 @@ static bool update_keyframe_animation(keyframe_animation_t* animation, visualize
         animation->need_update = (*animation->frame_functions[animation->current_frame])(animation, state);
     }
 
-    int wanted_sleep = animation->need_update ? 10 : animation->time_left_in_frame;
-    if ((unsigned)wanted_sleep < *sleep_time) {
+    systime_t wanted_sleep = animation->need_update ? MS2ST(10) : (systime_t)animation->time_left_in_frame;
+    if (wanted_sleep < *sleep_time) {
         *sleep_time = wanted_sleep;
     }
 
@@ -191,9 +192,22 @@ bool keyframe_set_backlight_color(keyframe_animation_t* animation, visualizer_st
 #ifdef LCD_ENABLE
 bool keyframe_display_layer_text(keyframe_animation_t* animation, visualizer_state_t* state) {
     (void)animation;
+    //ucnt_t ctxtBefore = ch.kernel_stats.n_ctxswc;
+	systime_t beforeClear = chVTGetSystemTimeX();
+	systime_t beforeClearOwn = chThdGetTicksX(chThdGetSelfX());
     gdispClear(White);
+	systime_t beforeDrawString = chVTGetSystemTimeX();
+	systime_t beforeDrawStringOwn = chThdGetTicksX(chThdGetSelfX());
     gdispDrawString(0, 10, state->layer_text, state->font_dejavusansbold12, Black);
+	systime_t beforeFlush = chVTGetSystemTimeX();
+	systime_t beforeFlushOwn = chThdGetTicksX(chThdGetSelfX());
     gdispFlush();
+	systime_t afterFlush = chVTGetSystemTimeX();
+	systime_t afterFlushOwn = chThdGetTicksX(chThdGetSelfX());
+    //ucnt_t ctxtAfter = ch.kernel_stats.n_ctxswc;
+	xprintf("display_layer_text clear %d, drawString %d, flush %d\n", beforeDrawString - beforeClear, beforeFlush - beforeDrawString, afterFlush - beforeFlush);
+	xprintf("own times clear %d, drawString %d, flush %d\n", beforeDrawStringOwn - beforeClearOwn, beforeFlushOwn - beforeDrawStringOwn, afterFlushOwn - beforeFlushOwn);
+	//xprintf("Context switches %d\n", ctxtAfter - ctxtBefore);
     return false;
 }
 
